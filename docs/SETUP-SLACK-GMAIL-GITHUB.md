@@ -1,6 +1,6 @@
-# NanoClaw: Slack + Gmail + GitHub Setup Guide
+# NanoClaw: Slack + Gmail + GitHub + GCS Setup Guide
 
-Replication guide for setting up NanoClaw with Slack as the primary channel, Gmail (tool mode), and GitHub MCP integration. Based on a working deployment.
+Replication guide for setting up NanoClaw with Slack as the primary channel, Gmail (tool mode), GitHub MCP, and GCS credentials. Based on a working deployment.
 
 ## Prerequisites
 
@@ -101,7 +101,9 @@ SLACK_APP_TOKEN=xapp-your-app-token
 
 Create a channel for the bot (e.g. `#your-bot-name`), then `/invite @YourBotName` in that channel. Copy the **Channel ID** from channel details (bottom of the panel).
 
-## 5. Register the Channel
+## 5. Register Channels
+
+### Main channel
 
 ```bash
 npx tsx setup/index.ts --step register \
@@ -112,6 +114,26 @@ npx tsx setup/index.ts --step register \
   --no-trigger-required \
   --assistant-name "your-bot-name"
 ```
+
+### Additional channels (optional)
+
+Register more channels the same way. Each gets its own isolated folder. Invite the bot first (`/invite @BotName`), then:
+
+```bash
+npx tsx setup/index.ts --step register \
+  -- --jid "slack:CHANNEL_ID" \
+  --name "channel-name" \
+  --trigger "@your-bot-name" \
+  --folder "channel-name" \
+  --no-trigger-required \
+  --assistant-name "your-bot-name"
+```
+
+- `--no-trigger-required` means the bot responds to all messages. Omit it if you want the bot to only respond when mentioned with `@bot-name`.
+- Each channel gets its own workspace at `groups/<folder-name>/` with isolated files and session history.
+- All channels share `groups/global/CLAUDE.md` for common instructions.
+
+Restart after adding channels: `launchctl kickstart -k gui/$(id -u)/com.nanoclaw`
 
 ## 6. Configure Mounts
 
@@ -170,7 +192,28 @@ GITHUB_TOKEN=github_pat_your-token
 
 GitHub MCP is already configured in the agent-runner source. No additional steps needed.
 
-## 9. Start the Service
+## 9. GCS Credentials (Optional)
+
+If the agent needs access to Google Cloud Storage:
+
+1. Create a service account in your GCP project with the necessary GCS permissions
+2. Download the JSON key file
+3. Place it in the Gmail MCP credentials directory (already mounted into containers):
+
+```bash
+cp ~/Downloads/your-project-key.json ~/.gmail-mcp/gcs-service-account.json
+chmod 600 ~/.gmail-mcp/gcs-service-account.json
+```
+
+The agent can then use it by setting the environment variable before `gsutil` commands:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/home/node/.gmail-mcp/gcs-service-account.json gsutil ls gs://your-bucket
+```
+
+The `~/.gmail-mcp/` directory is mounted at `/home/node/.gmail-mcp/` inside the container. The Gmail MCP only reads its own files (`gcp-oauth.keys.json` and `credentials.json`) and ignores other files in the directory.
+
+## 10. Start the Service
 
 ```bash
 npm run build
@@ -195,7 +238,7 @@ tail -f logs/nanoclaw.log
 
 You should see `Connected to Slack (Socket Mode)` and `NanoClaw running`.
 
-## 10. Test
+## 11. Test
 
 Send a message in your Slack channel. The bot should respond.
 
@@ -223,6 +266,8 @@ systemctl --user stop nanoclaw
 groups/global/CLAUDE.md       # Shared bot memory (all groups)
 groups/main/CLAUDE.md         # Main channel memory + admin config
 groups/main/images/           # Downloaded Slack images
+groups/<name>/CLAUDE.md       # Per-channel memory (one per registered channel)
+~/.gmail-mcp/                 # Gmail OAuth + GCS service account creds
 store/messages.db             # SQLite database
 logs/nanoclaw.log             # Application logs
 data/sessions/main/           # Agent session data
