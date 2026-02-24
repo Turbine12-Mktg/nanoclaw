@@ -8,6 +8,8 @@ import {
   POLL_INTERVAL,
   TRIGGER_PATTERN,
 } from './config.js';
+import { readEnvFile } from './env.js';
+import { SlackChannel } from './channels/slack.js';
 import { WhatsAppChannel } from './channels/whatsapp.js';
 import {
   ContainerOutput,
@@ -48,7 +50,6 @@ let registeredGroups: Record<string, RegisteredGroup> = {};
 let lastAgentTimestamp: Record<string, string> = {};
 let messageLoopRunning = false;
 
-let whatsapp: WhatsAppChannel;
 const channels: Channel[] = [];
 const queue = new GroupQueue();
 
@@ -445,9 +446,23 @@ async function main(): Promise<void> {
   };
 
   // Create and connect channels
-  whatsapp = new WhatsAppChannel(channelOpts);
-  channels.push(whatsapp);
-  await whatsapp.connect();
+  const slackEnv = readEnvFile(['SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN']);
+  let syncGroupMetadataFn: (force: boolean) => Promise<void> = () => Promise.resolve();
+
+  if (slackEnv.SLACK_BOT_TOKEN && slackEnv.SLACK_APP_TOKEN) {
+    const slack = new SlackChannel({
+      ...channelOpts,
+      botToken: slackEnv.SLACK_BOT_TOKEN,
+      appToken: slackEnv.SLACK_APP_TOKEN,
+    });
+    channels.push(slack);
+    await slack.connect();
+  } else {
+    const whatsapp = new WhatsAppChannel(channelOpts);
+    channels.push(whatsapp);
+    await whatsapp.connect();
+    syncGroupMetadataFn = (force) => whatsapp.syncGroupMetadata(force);
+  }
 
   // Start subsystems (independently of connection handler)
   startSchedulerLoop({
@@ -473,7 +488,7 @@ async function main(): Promise<void> {
     },
     registeredGroups: () => registeredGroups,
     registerGroup,
-    syncGroupMetadata: (force) => whatsapp?.syncGroupMetadata(force) ?? Promise.resolve(),
+    syncGroupMetadata: syncGroupMetadataFn,
     getAvailableGroups,
     writeGroupsSnapshot: (gf, im, ag, rj) => writeGroupsSnapshot(gf, im, ag, rj),
   });
