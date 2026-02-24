@@ -433,7 +433,8 @@ async function runQuery(
         'TodoWrite', 'ToolSearch', 'Skill',
         'NotebookEdit',
         'mcp__nanoclaw__*',
-        'mcp__gmail__*'
+        'mcp__gmail__*',
+        'mcp__github__*'
       ],
       env: sdkEnv,
       permissionMode: 'bypassPermissions',
@@ -452,6 +453,13 @@ async function runQuery(
         gmail: {
           command: 'npx',
           args: ['-y', '@gongrzhe/server-gmail-autoauth-mcp'],
+        },
+        github: {
+          command: 'npx',
+          args: ['-y', '@modelcontextprotocol/server-github'],
+          env: {
+            GITHUB_PERSONAL_ACCESS_TOKEN: containerInput.secrets?.GITHUB_TOKEN || '',
+          },
         },
       },
       hooks: {

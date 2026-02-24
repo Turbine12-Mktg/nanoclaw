@@ -226,3 +226,17 @@ You have access to Gmail via MCP tools:
 - `mcp__gmail__list_labels` - List available labels
 
 Example: "Check my unread emails from today" or "Send an email to john@example.com about the meeting"
+
+## GitHub
+
+You have access to GitHub via MCP tools:
+- `mcp__github__search_repositories` - Search for repos
+- `mcp__github__get_file_contents` - Read files from a repo
+- `mcp__github__list_issues` - List issues
+- `mcp__github__create_issue` - Create an issue
+- `mcp__github__create_pull_request` - Create a PR
+- `mcp__github__list_pull_requests` - List PRs
+- `mcp__github__get_pull_request` - Get PR details
+- `mcp__github__create_or_update_file` - Push file changes
+
+Example: "List open PRs on my repo" or "Create an issue for the login bug"
