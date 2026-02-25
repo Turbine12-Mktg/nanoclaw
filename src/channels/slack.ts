@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { App, LogLevel } from '@slack/bolt';
+import sharp from 'sharp';
 
 import { ASSISTANT_NAME, GROUPS_DIR } from '../config.js';
 import { logger } from '../logger.js';
@@ -165,7 +166,28 @@ export class SlackChannel implements Channel {
         }
 
         const buffer = Buffer.from(await response.arrayBuffer());
-        fs.writeFileSync(hostPath, buffer);
+
+        // Resize to stay under API multi-image dimension limit (2000px).
+        // Cap at 1568px (Claude's recommended max for single images).
+        try {
+          const image = sharp(buffer);
+          const metadata = await image.metadata();
+          const maxDim = 1568;
+          if (metadata.width && metadata.height &&
+              (metadata.width > maxDim || metadata.height > maxDim)) {
+            const resized = await image
+              .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+              .toBuffer();
+            fs.writeFileSync(hostPath, resized);
+            logger.info({ file: file.name, original: `${metadata.width}x${metadata.height}` }, 'Resized image');
+          } else {
+            fs.writeFileSync(hostPath, buffer);
+          }
+        } catch (resizeErr) {
+          // Fall back to original if resize fails
+          fs.writeFileSync(hostPath, buffer);
+          logger.warn({ file: file.name, err: resizeErr }, 'Image resize failed, saved original');
+        }
 
         // Return the container-relative path (agent sees /workspace/group/)
         const containerPath = `/workspace/group/images/${filename}`;
