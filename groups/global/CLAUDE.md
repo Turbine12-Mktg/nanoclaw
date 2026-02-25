@@ -18,6 +18,10 @@ Your output is sent to the user or group.
 
 You also have `mcp__nanoclaw__send_message` which sends a message immediately while you're still working. This is useful when you want to acknowledge a request before starting longer work.
 
+### Always Acknowledge First
+
+**IMPORTANT:** Always acknowledge messages before kicking off actual work. Send a quick acknowledgment so the user knows you heard them, then proceed with the task. Use `mcp__nanoclaw__send_message` for immediate acknowledgment on longer tasks. This is especially important when you receive a message while already working on something — acknowledge it right away.
+
 ### Internal thoughts
 
 If part of your output is internal reasoning rather than something for the user, wrap it in `<internal>` tags:
